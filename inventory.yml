@@ -1,0 +1,22 @@
+---
+all:
+#  hosts:
+#    # Replace these with your actual hostnames or IP addresses
+#    host1:
+#      ansible_host: 192.168.1.10
+#      ansible_user: your_username
+#    
+#    host2:
+#      ansible_host: 192.168.1.11
+#      ansible_user: your_username
+  
+  # Alternatively, you can use groups:
+  turtles:
+    raspberry_pi:
+      hosts:
+        - leonardo
+        - donatello
+        - raphael
+        - michealangelo
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
