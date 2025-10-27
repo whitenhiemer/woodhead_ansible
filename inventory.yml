@@ -1,10 +1,9 @@
 ---
-# Alternatively, you can use groups:
 turtles:
   hosts:
-    - leonardo:
-    - donatello:
-    - raphael:
-    - michealangelo:
+    - leonardo: null
+    - donatello: null
+    - raphael: null
+    - michealangelo: null
   vars:
     ansible_python_interpreter: /usr/bin/python3
