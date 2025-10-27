@@ -3,9 +3,9 @@
 turtles:
   raspberry_pi:
     hosts:
-      - leonardo
-      - donatello
-      - raphael
-      - michealangelo
+      - leonardo:
+      - donatello:
+      - raphael:
+      - michealangelo:
     vars:
       ansible_python_interpreter: /usr/bin/python3
