@@ -7,40 +7,67 @@ Ansible playbooks for managing hosts on my network.
 - Ansible 2.9 or later
 - SSH access to target hosts
 - sudo/root privileges on target hosts
+- Ubuntu/Debian hosts (for Kubernetes installation)
 
 ## Files
 
-- `apt-update.yml` - Playbook to update apt package lists and optionally upgrade packages
+- `k8s-install.yml` - Playbook to install Kubernetes with apt
+- `k8s-init.yml` - Playbook to initialize Kubernetes cluster
 - `inventory.yml` - Inventory file defining hosts to manage
 - `ansible.cfg` - Ansible configuration settings
 
-## Usage
+## Kubernetes Installation
 
 ### 1. Update inventory.yml
 
 Edit `inventory.yml` and replace the example hosts with your actual hostnames/IPs and usernames.
 
-### 2. Run the playbook
+### 2. Install Kubernetes packages
 
-**Update apt cache only:**
+**Install on all hosts:**
 ```bash
-ansible-playbook apt-update.yml
+ansible-playbook k8s-install.yml
 ```
 
-**Update apt cache AND upgrade all packages:**
+**Install with specific Kubernetes version:**
 ```bash
-ansible-playbook apt-update.yml -e "upgrade_packages=true"
+ansible-playbook k8s-install.yml -e "kubernetes_version=1.28.0-00"
 ```
 
-**Run on specific hosts:**
+**Install on specific hosts:**
 ```bash
-ansible-playbook apt-update.yml --limit host1
+ansible-playbook k8s-install.yml --limit leonardo
 ```
 
-**Run on specific groups:**
-```bash
-ansible-playbook apt-update.yml --limit ubuntu_servers
+### 3. Initialize Kubernetes cluster
+
+**First, update inventory.yml to define control plane:**
+```yaml
+turtles:
+  hosts:
+    leonardo:
+      ansible_host: 192.168.86.238
+    donatello: null
+    raphael: null
+    michealangelo: null
+  children:
+    control_plane:
+      hosts:
+        - leonardo
+    workers:
+      hosts:
+        - donatello
+        - raphael
+        - michealangelo
 ```
+
+**Initialize the cluster:**
+```bash
+ansible-playbook k8s-init.yml
+```
+
+**Join worker nodes:**
+Use the join command displayed after cluster initialization.
 
 ## Testing Connections
 
@@ -54,4 +81,10 @@ ansible all -m ping
 You can specify SSH keys, sudo passwords, or other settings:
 - In `inventory.yml` for per-host settings
 - In `ansible.cfg` for global settings
-- Via command line: `ansible-playbook apt-update.yml -e "ansible_sudo_pass=your_password"`
+- Via command line: `ansible-playbook k8s-install.yml -e "ansible_sudo_pass=your_password"`
+
+## Kubernetes Variables
+
+- `kubernetes_version`: Kubernetes version to install (default: "1.29.0-00")
+- `container_runtime`: Container runtime to use (default: "containerd")
+- `pod_network_cidr`: Pod network CIDR for cluster initialization (default: "10.244.0.0/16")

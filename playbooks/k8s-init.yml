@@ -1,0 +1,41 @@
+---
+- name: Initialize Kubernetes cluster
+  hosts: control_plane
+  become: yes
+  vars:
+    cluster_name: "kubernetes"
+    pod_network_cidr: "10.244.0.0/16"
+    
+  tasks:
+    - name: Initialize Kubernetes cluster
+      ansible.builtin.shell: |
+        kubeadm init \
+          --pod-network-cidr={{ pod_network_cidr }} \
+          --control-plane-endpoint={{ ansible_default_ipv4.address }} \
+          --upload-certs
+      register: kubeadm_init
+      
+    - name: Create .kube directory for user
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+        
+    - name: Copy admin config to user directory
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{ ansible_user }}/.kube/config
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+        
+    - name: Install Flannel CNI
+      ansible.builtin.shell: |
+        kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+      become_user: "{{ ansible_user }}"
+      
+    - name: Display join command
+      ansible.builtin.debug:
+        msg: "{{ kubeadm_init.stdout_lines[-1] }}"

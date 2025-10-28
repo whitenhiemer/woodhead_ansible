@@ -1,0 +1,153 @@
+---
+- name: Install Kubernetes with apt
+  hosts: all
+  become: yes
+  vars:
+    # Kubernetes version to install
+    kubernetes_version: "1.29.0-00"
+    
+    # Container runtime (containerd or docker)
+    container_runtime: "containerd"
+    
+    # Control plane configuration
+    is_control_plane: false
+    control_plane_ip: ""
+    cluster_name: "kubernetes"
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Kubernetes GPG key
+      ansible.builtin.apt_key:
+        url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[0] }}/deb/Release.key
+        state: present
+
+    - name: Add Kubernetes repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[0] }}/deb/ /"
+        state: present
+        filename: kubernetes
+
+    - name: Update apt cache after adding repository
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install Kubernetes packages
+      ansible.builtin.apt:
+        name:
+          - kubelet={{ kubernetes_version }}
+          - kubeadm={{ kubernetes_version }}
+          - kubectl={{ kubernetes_version }}
+        state: present
+        allow_downgrade: yes
+
+    - name: Hold Kubernetes packages to prevent automatic updates
+      ansible.builtin.apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        hold: yes
+
+    - name: Install container runtime (containerd)
+      block:
+        - name: Add Docker GPG key
+          ansible.builtin.apt_key:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            state: present
+
+        - name: Add Docker repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+            state: present
+
+        - name: Update apt cache after adding Docker repository
+          ansible.builtin.apt:
+            update_cache: yes
+
+        - name: Install containerd
+          ansible.builtin.apt:
+            name:
+              - containerd.io
+              - docker-ce-cli
+            state: present
+
+        - name: Configure containerd
+          ansible.builtin.copy:
+            content: |
+              version = 2
+              [plugins."io.containerd.grpc.v1.cri"]
+                [plugins."io.containerd.grpc.v1.cri".containerd]
+                  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+                    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+                      runtime_type = "io.containerd.runc.v2"
+                      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+                        SystemdCgroup = true
+            dest: /etc/containerd/config.toml
+            mode: '0644'
+
+        - name: Enable and start containerd
+          ansible.builtin.systemd:
+            name: containerd
+            enabled: yes
+            state: started
+
+        - name: Enable and start kubelet
+          ansible.builtin.systemd:
+            name: kubelet
+            enabled: yes
+            state: started
+
+      when: container_runtime == "containerd"
+
+    - name: Configure kernel modules
+      ansible.builtin.modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - br_netfilter
+        - overlay
+
+    - name: Load kernel modules on boot
+      ansible.builtin.copy:
+        content: |
+          br_netfilter
+          overlay
+        dest: /etc/modules-load.d/k8s.conf
+        mode: '0644'
+
+    - name: Configure sysctl for Kubernetes
+      ansible.builtin.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward", value: "1" }
+
+    - name: Disable swap
+      ansible.builtin.shell: |
+        swapoff -a
+        sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+      args:
+        warn: false
+
+    - name: Display installation completion message
+      ansible.builtin.debug:
+        msg: "Kubernetes packages installed successfully. Ready for cluster initialization."
