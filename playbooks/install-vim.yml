@@ -1,0 +1,44 @@
+---
+- name: Install vim
+  hosts: all
+  become: yes
+  vars:
+    # Set to true to also install vim-gtk for GUI support
+    install_gui: false
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install vim
+      ansible.builtin.apt:
+        name: vim
+        state: present
+      register: vim_install_result
+
+    - name: Install vim-gtk (optional)
+      ansible.builtin.apt:
+        name: vim-gtk
+        state: present
+      when: install_gui | bool
+      register: vim_gtk_install_result
+
+    - name: Display vim installation results
+      ansible.builtin.debug:
+        msg: "Vim installed successfully on {{ inventory_hostname }}"
+
+    - name: Display vim-gtk installation results
+      ansible.builtin.debug:
+        msg: "Vim-gtk installed successfully on {{ inventory_hostname }}"
+      when: install_gui | bool
+
+    - name: Verify vim installation
+      ansible.builtin.command: vim --version
+      register: vim_version
+      changed_when: false
+
+    - name: Display vim version
+      ansible.builtin.debug:
+        msg: "{{ vim_version.stdout_lines[0] }}"

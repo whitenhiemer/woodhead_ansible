@@ -1,0 +1,72 @@
+---
+- name: Install zsh and git
+  hosts: all
+  become: yes
+  vars:
+    # Set to true to set zsh as default shell for ansible user
+    set_zsh_default: false
+    # Set to true to install oh-my-zsh
+    install_oh_my_zsh: false
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install zsh
+      ansible.builtin.apt:
+        name: zsh
+        state: present
+      register: zsh_install_result
+
+    - name: Install git
+      ansible.builtin.apt:
+        name: git
+        state: present
+      register: git_install_result
+
+    - name: Display zsh installation results
+      ansible.builtin.debug:
+        msg: "Zsh installed successfully on {{ inventory_hostname }}"
+
+    - name: Display git installation results
+      ansible.builtin.debug:
+        msg: "Git installed successfully on {{ inventory_hostname }}"
+
+    - name: Verify zsh installation
+      ansible.builtin.command: zsh --version
+      register: zsh_version
+      changed_when: false
+
+    - name: Verify git installation
+      ansible.builtin.command: git --version
+      register: git_version
+      changed_when: false
+
+    - name: Display zsh version
+      ansible.builtin.debug:
+        msg: "{{ zsh_version.stdout }}"
+
+    - name: Display git version
+      ansible.builtin.debug:
+        msg: "{{ git_version.stdout }}"
+
+    - name: Set zsh as default shell for ansible user
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        shell: /bin/zsh
+      when: set_zsh_default | bool
+
+    - name: Install oh-my-zsh (optional)
+      ansible.builtin.shell: |
+        sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+      args:
+        creates: /home/{{ ansible_user }}/.oh-my-zsh
+      when: install_oh_my_zsh | bool
+      become_user: "{{ ansible_user }}"
+
+    - name: Display oh-my-zsh installation results
+      ansible.builtin.debug:
+        msg: "Oh-my-zsh installed successfully on {{ inventory_hostname }}"
+      when: install_oh_my_zsh | bool
