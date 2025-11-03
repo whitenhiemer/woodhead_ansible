@@ -15,7 +15,9 @@ turtles:
     ansible_python_interpreter: /usr/bin/python3
     ansible_ssh_private_key_file: ~/.ssh/id_ansible
     ansible_user: bwoodwar
+
 proxmox:
+  # Proxmox is the virtualization platform running the homelab
   hosts:
     master:
       ansible_host: 192.168.86.215
@@ -40,6 +42,7 @@ homeassistant:
     ansible_ssh_private_key_file: ~/.ssh/id_ansible
 
 monitoring:
+  # Monitoring is the infrastructure for the monitoring of the homelab
   hosts:
     graphana:
       ansible_host: 192.168.86.222
