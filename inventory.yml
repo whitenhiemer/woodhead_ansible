@@ -11,3 +11,18 @@ turtles:
       ansible_host: 192.168.86.241
   vars:
     ansible_python_interpreter: /usr/bin/python3
+proxmox:
+  hosts:
+    master:
+      ansible_host: 192.168.86.215
+    thinkcentre1:
+      ansible_host: 192.168.86.23
+    thinkcentre2:
+      ansible_host: 192.168.86.214
+    thinkcentre3:
+      ansible_host: 192.168.86.216
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_user: root
+    ansible_ssh_private_key_file: ~/.ssh/id_ansible
+    ansible_ssh_private_key_file: ~/.ssh/id_ansible.pub

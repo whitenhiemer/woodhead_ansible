@@ -1,0 +1,84 @@
+---
+- name: Install gnupg
+  hosts: all
+  become: yes
+  vars:
+    # Set to true to also install gnupg2 (GnuPG 2.x)
+    install_gnupg2: true
+    # Set to true to install additional GnuPG tools
+    install_additional_tools: false
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install gnupg
+      ansible.builtin.apt:
+        name: gnupg
+        state: present
+      register: gnupg_install_result
+
+    - name: Install gnupg2
+      ansible.builtin.apt:
+        name: gnupg2
+        state: present
+      when: install_gnupg2 | bool
+      register: gnupg2_install_result
+
+    - name: Install additional GnuPG tools
+      ansible.builtin.apt:
+        name:
+          - gnupg-agent
+          - pinentry-curses
+          - scdaemon
+        state: present
+      when: install_additional_tools | bool
+      register: gnupg_tools_install_result
+
+    - name: Display gnupg installation results
+      ansible.builtin.debug:
+        msg: "GnuPG installed successfully on {{ inventory_hostname }}"
+
+    - name: Display gnupg2 installation results
+      ansible.builtin.debug:
+        msg: "GnuPG2 installed successfully on {{ inventory_hostname }}"
+      when: install_gnupg2 | bool
+
+    - name: Display additional tools installation results
+      ansible.builtin.debug:
+        msg: "Additional GnuPG tools installed successfully on {{ inventory_hostname }}"
+      when: install_additional_tools | bool
+
+    - name: Verify gnupg installation
+      ansible.builtin.command: gpg --version
+      register: gnupg_version
+      changed_when: false
+
+    - name: Verify gnupg2 installation
+      ansible.builtin.command: gpg2 --version
+      register: gnupg2_version
+      changed_when: false
+      when: install_gnupg2 | bool
+
+    - name: Display gnupg version
+      ansible.builtin.debug:
+        msg: "{{ gnupg_version.stdout_lines[0] }}"
+
+    - name: Display gnupg2 version
+      ansible.builtin.debug:
+        msg: "{{ gnupg2_version.stdout_lines[0] }}"
+      when: install_gnupg2 | bool
+
+    - name: Check if gnupg is working
+      ansible.builtin.command: gpg --list-keys
+      register: gnupg_keys
+      changed_when: false
+      failed_when: false
+
+    - name: Display gnupg keyring status
+      ansible.builtin.debug:
+        msg: "GnuPG keyring accessible - {{ gnupg_keys.rc == 0 | ternary('Yes', 'No') }}"
+
+

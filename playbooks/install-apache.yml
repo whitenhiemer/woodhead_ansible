@@ -1,0 +1,112 @@
+---
+- name: Install Apache web server
+  hosts: all
+  become: yes
+  vars:
+    # Set to true to enable Apache service on boot
+    enable_apache: true
+    # Set to true to start Apache service immediately
+    start_apache: true
+    # Set to true to install additional Apache modules
+    install_additional_modules: false
+    # Set to true to configure basic firewall rules
+    configure_firewall: false
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Apache
+      ansible.builtin.apt:
+        name: apache2
+        state: present
+      register: apache_install_result
+
+    - name: Install additional Apache modules
+      ansible.builtin.apt:
+        name:
+          - apache2-utils
+          - libapache2-mod-ssl
+          - libapache2-mod-security2
+        state: present
+      when: install_additional_modules | bool
+      register: apache_modules_install_result
+
+    - name: Enable Apache service
+      ansible.builtin.systemd:
+        name: apache2
+        enabled: "{{ enable_apache | bool }}"
+        state: started
+      when: start_apache | bool
+      register: apache_service_result
+
+    - name: Start Apache service
+      ansible.builtin.systemd:
+        name: apache2
+        state: started
+      when: not start_apache | bool
+      register: apache_start_result
+
+    - name: Configure UFW firewall for Apache
+      ansible.builtin.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "80"
+        - "443"
+      when: configure_firewall | bool
+      register: firewall_result
+
+    - name: Display Apache installation results
+      ansible.builtin.debug:
+        msg: "Apache installed successfully on {{ inventory_hostname }}"
+
+    - name: Display Apache modules installation results
+      ansible.builtin.debug:
+        msg: "Additional Apache modules installed successfully on {{ inventory_hostname }}"
+      when: install_additional_modules | bool
+
+    - name: Display Apache service status
+      ansible.builtin.debug:
+        msg: "Apache service is {{ 'started and enabled' if start_apache | bool else 'started' }} on {{ inventory_hostname }}"
+
+    - name: Display firewall configuration results
+      ansible.builtin.debug:
+        msg: "Firewall rules configured for Apache on {{ inventory_hostname }}"
+      when: configure_firewall | bool
+
+    - name: Verify Apache installation
+      ansible.builtin.command: apache2 -v
+      register: apache_version
+      changed_when: false
+
+    - name: Check Apache service status
+      ansible.builtin.systemd:
+        name: apache2
+      register: apache_status
+      changed_when: false
+
+    - name: Display Apache version
+      ansible.builtin.debug:
+        msg: "{{ apache_version.stdout }}"
+
+    - name: Display Apache service status
+      ansible.builtin.debug:
+        msg: "Apache service status: {{ apache_status.status.ActiveState }}"
+
+    - name: Test Apache web server
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}"
+        method: GET
+        status_code: 200
+      register: apache_test
+      ignore_errors: yes
+
+    - name: Display Apache web server test results
+      ansible.builtin.debug:
+        msg: "Apache web server is {{ 'accessible' if apache_test.status == 200 else 'not accessible' }} on {{ inventory_hostname }}"
+
+
