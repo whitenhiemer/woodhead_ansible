@@ -1,8 +1,10 @@
 ---
 turtles:
+# Turtles are the hosts that are part of the Kubernetes cluster.
   hosts:
-    leonardo:
-      ansible_host: 192.168.86.238
+    # Leonardo is currently offline
+    #leonardo:
+    #  ansible_host: 192.168.86.238
     donatello:
       ansible_host: 192.168.86.239
     raphael:
@@ -11,6 +13,8 @@ turtles:
       ansible_host: 192.168.86.241
   vars:
     ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_private_key_file: ~/.ssh/id_ansible
+    ansible_user: bwoodwar
 proxmox:
   hosts:
     master:
@@ -21,6 +25,15 @@ proxmox:
       ansible_host: 192.168.86.214
     thinkcentre3:
       ansible_host: 192.168.86.216
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_user: root
+    ansible_ssh_private_key_file: ~/.ssh/id_ansible
+
+homeassistant:
+  hosts:
+    homeassistant:
+      ansible_host: 192.168.86.226
   vars:
     ansible_python_interpreter: /usr/bin/python3
     ansible_user: root
