@@ -1,0 +1,122 @@
+---
+- name: Mount NFS drive
+  hosts: all
+  become: yes
+  vars:
+    # NFS server IP address or hostname
+    nfs_server: "192.168.86.100"
+    # NFS export path on the server
+    nfs_export_path: "/mnt/nfs/share"
+    # Local mount point directory
+    mount_point: "/mnt/nfs"
+    # NFS mount options (comma-separated)
+    nfs_options: "rw,sync,hard,intr"
+    # Set to true to add mount to /etc/fstab for persistent mounting
+    add_to_fstab: true
+    # Set to true to mount immediately after adding to fstab
+    mount_immediately: true
+    
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install NFS client packages
+      ansible.builtin.apt:
+        name:
+          - nfs-common
+          - nfs-kernel-server
+        state: present
+      register: nfs_install_result
+
+    - name: Create mount point directory
+      ansible.builtin.file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: '0755'
+      register: mount_point_result
+
+    - name: Check if NFS share is already mounted
+      ansible.builtin.mount:
+        path: "{{ mount_point }}"
+      register: mount_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add NFS mount to /etc/fstab
+      ansible.builtin.mount:
+        path: "{{ mount_point }}"
+        src: "{{ nfs_server }}:{{ nfs_export_path }}"
+        fstype: nfs
+        opts: "{{ nfs_options }}"
+        state: present
+      when: add_to_fstab | bool
+      register: fstab_result
+
+    - name: Mount NFS share
+      ansible.builtin.mount:
+        path: "{{ mount_point }}"
+        src: "{{ nfs_server }}:{{ nfs_export_path }}"
+        fstype: nfs
+        opts: "{{ nfs_options }}"
+        state: mounted
+      when: mount_immediately | bool or not add_to_fstab | bool
+      register: mount_result
+
+    - name: Display NFS installation results
+      ansible.builtin.debug:
+        msg: "NFS client packages installed successfully on {{ inventory_hostname }}"
+
+    - name: Display mount point creation results
+      ansible.builtin.debug:
+        msg: "Mount point {{ mount_point }} created on {{ inventory_hostname }}"
+
+    - name: Display fstab configuration results
+      ansible.builtin.debug:
+        msg: "NFS mount added to /etc/fstab on {{ inventory_hostname }}"
+      when: add_to_fstab | bool
+
+    - name: Display mount results
+      ansible.builtin.debug:
+        msg: "NFS share mounted successfully on {{ inventory_hostname }}"
+      when: mount_immediately | bool or not add_to_fstab | bool
+
+    - name: Verify NFS mount
+      ansible.builtin.command: mountpoint -q {{ mount_point }}
+      register: mount_verify
+      changed_when: false
+      failed_when: false
+
+    - name: Get mount information
+      ansible.builtin.command: df -h {{ mount_point }}
+      register: mount_info
+      changed_when: false
+      failed_when: false
+
+    - name: Display mount verification
+      ansible.builtin.debug:
+        msg: "NFS mount is {{ 'active' if mount_verify.rc == 0 else 'not active' }} on {{ inventory_hostname }}"
+
+    - name: Display mount information
+      ansible.builtin.debug:
+        msg: "{{ mount_info.stdout_lines }}"
+      when: mount_info.rc == 0
+
+    - name: Test NFS mount write access
+      ansible.builtin.file:
+        path: "{{ mount_point }}/.ansible_test"
+        state: touch
+      register: write_test
+      failed_when: false
+      changed_when: false
+
+    - name: Clean up test file
+      ansible.builtin.file:
+        path: "{{ mount_point }}/.ansible_test"
+        state: absent
+      when: write_test.failed == false
+
+    - name: Display write access test results
+      ansible.builtin.debug:
+        msg: "NFS mount write access is {{ 'working' if write_test.failed == false else 'not working' }} on {{ inventory_hostname }}"
