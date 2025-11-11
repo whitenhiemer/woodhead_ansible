@@ -1,0 +1,24 @@
+---
+- name: Power off all devices
+  hosts: all
+  become: yes
+  vars:
+    # Delay in minutes before shutdown (0 for immediate)
+    shutdown_delay: 0
+    
+  tasks:
+    - name: Power off the system
+      ansible.builtin.command:
+        cmd: shutdown -h +{{ shutdown_delay }}
+      when: shutdown_delay > 0
+      register: shutdown_result
+
+    - name: Power off the system immediately
+      ansible.builtin.command:
+        cmd: shutdown -h now
+      when: shutdown_delay == 0
+      register: shutdown_result
+
+    - name: Display shutdown status
+      ansible.builtin.debug:
+        msg: "System shutdown initiated"
