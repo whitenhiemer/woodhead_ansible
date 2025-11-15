@@ -16,6 +16,17 @@ turtles:
     ansible_ssh_private_key_file: ~/.ssh/id_ansible
     ansible_user: bwoodwar
 
+media_servers:
+  hosts:
+    plex_server:
+      ansible_host: 192.168.86.41
+    sonarr_server:
+      ansible_host: 192.168.86.45
+    radarr_server:
+      ansible_host: 192.168.86.47
+    prowlarr_server:
+      ansible_host: 192.168.86.28
+
 proxmox:
   # Proxmox is the virtualization platform running the homelab
   hosts:

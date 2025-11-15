@@ -4,11 +4,11 @@
   become: yes
   vars:
     # NFS server IP address or hostname
-    nfs_server: "192.168.86.100"
+    nfs_server: "192.168.86.41"
     # NFS export path on the server
-    nfs_export_path: "/mnt/nfs/share"
+    nfs_export_name: "/mnt/T_NAS/media"
     # Local mount point directory
-    mount_point: "/mnt/nfs"
+    mount_point: "/mnt/nfs/media"
     # NFS mount options (comma-separated)
     nfs_options: "rw,sync,hard,intr"
     # Set to true to add mount to /etc/fstab for persistent mounting
