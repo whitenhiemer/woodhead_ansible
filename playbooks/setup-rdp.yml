@@ -1,0 +1,130 @@
+---
+# Ubuntu/Debian: GNOME Remote Desktop (grdctl, port 3389)
+# Arch/CachyOS: RustDesk (AUR rustdesk-bin, port 21115-21119)
+#   - gnome-remote-desktop doesn't bind on KDE/Wayland without portal consent from SSH
+#   - RustDesk runs as a system service, no display server dependency
+
+- name: Set up remote desktop on desktop machines
+  hosts: desktops
+  become: yes
+  vars:
+    rdp_username: bwoodwar
+    rdp_password: "{{ rdp_password | mandatory }}"
+    rdp_cert_dir: /etc/gnome-remote-desktop
+    rdp_cert_path: "{{ rdp_cert_dir }}/rdp.crt"
+    rdp_key_path: "{{ rdp_cert_dir }}/rdp.key"
+    rdp_cert_days: 3650
+
+  tasks:
+    # --- Ubuntu/Debian: GNOME Remote Desktop ---
+
+    - name: (Ubuntu) Install gnome-remote-desktop
+      ansible.builtin.apt:
+        name: gnome-remote-desktop
+        state: present
+        update_cache: yes
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Create cert directory
+      ansible.builtin.file:
+        path: "{{ rdp_cert_dir }}"
+        state: directory
+        owner: gnome-remote-desktop
+        group: gnome-remote-desktop
+        mode: "0755"
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Generate self-signed TLS certificate
+      ansible.builtin.command:
+        cmd: >
+          openssl req -x509 -newkey rsa:4096
+          -keyout {{ rdp_key_path }}
+          -out {{ rdp_cert_path }}
+          -days {{ rdp_cert_days }}
+          -nodes
+          -subj "/CN={{ inventory_hostname }}"
+        creates: "{{ rdp_cert_path }}"
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Set cert ownership
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: gnome-remote-desktop
+        group: gnome-remote-desktop
+        mode: "0640"
+      loop:
+        - "{{ rdp_cert_path }}"
+        - "{{ rdp_key_path }}"
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Enable and start gnome-remote-desktop
+      ansible.builtin.systemd:
+        name: gnome-remote-desktop
+        enabled: yes
+        state: started
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Configure RDP TLS certificate
+      ansible.builtin.command:
+        cmd: grdctl --system rdp set-tls-cert {{ rdp_cert_path }}
+      changed_when: true
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Configure RDP TLS key
+      ansible.builtin.command:
+        cmd: grdctl --system rdp set-tls-key {{ rdp_key_path }}
+      changed_when: true
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Set RDP credentials
+      ansible.builtin.shell:
+        cmd: script -q -c "grdctl --system rdp set-credentials {{ rdp_username }} {{ rdp_password }}" /dev/null
+      no_log: true
+      changed_when: true
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Disable view-only mode
+      ansible.builtin.command:
+        cmd: grdctl --system rdp disable-view-only
+      changed_when: true
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Enable RDP backend
+      ansible.builtin.command:
+        cmd: grdctl --system rdp enable
+      changed_when: true
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Restart gnome-remote-desktop
+      ansible.builtin.systemd:
+        name: gnome-remote-desktop
+        state: restarted
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: (Ubuntu) Verify RDP port 3389 is listening
+      ansible.builtin.wait_for:
+        port: 3389
+        timeout: 15
+      when: ansible_facts["os_family"] == "Debian"
+
+    # --- Arch/CachyOS: RustDesk ---
+
+    - name: (Arch) Install RustDesk from AUR via paru
+      ansible.builtin.command:
+        cmd: paru -S --noconfirm rustdesk-bin
+      become: false
+      changed_when: true
+      when: ansible_facts["os_family"] == "Archlinux"
+
+    - name: (Arch) Enable and start RustDesk system service
+      ansible.builtin.systemd:
+        name: rustdesk
+        enabled: yes
+        state: started
+      when: ansible_facts["os_family"] == "Archlinux"
+
+    - name: (Arch) Verify RustDesk is running
+      ansible.builtin.wait_for:
+        port: 21115
+        timeout: 15
+      when: ansible_facts["os_family"] == "Archlinux"

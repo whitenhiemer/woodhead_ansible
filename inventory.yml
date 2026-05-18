@@ -1,4 +1,15 @@
 ---
+desktops:
+  hosts:
+    lenovo-ubuntu:
+      ansible_host: 192.168.86.137
+    legion-go:
+      ansible_host: 192.168.86.173  # CachyOS (Arch-based)
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_user: bwoodwar
+    ansible_ssh_private_key_file: ~/.ssh/id_ansible
+
 turtles:
 # Turtles are the hosts that are part of the Kubernetes cluster.
   hosts:
@@ -25,7 +36,7 @@ media_servers:
     radarr_server:
       ansible_host: 192.168.86.47
     prowlarr_server:
-      ansible_host: 192.168.86.28
+      ansible_host: 192.168.86.25
 
 proxmox:
   # Proxmox is the virtualization platform running the homelab
